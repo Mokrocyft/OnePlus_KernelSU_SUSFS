@@ -1232,10 +1232,35 @@ runs:
             exit 1
             ;;
         esac
+
+        # Disable heavy debug runtime (perf/battery)
+        scripts/config --file "$OUT/.config" \
+          -d LOCKDEP \
+          -d PROVE_LOCKING \
+          -d DEBUG_LOCK_ALLOC \
+          -d LOCK_DEBUGGING \
+          -d DEBUG_MUTEXES \
+          -d DEBUG_SPINLOCK \
+          -d DEBUG_ATOMIC_SLEEP \
+          -d DEBUG_KMEMLEAK \
+          -d DEBUG_OBJECTS \
+          -d SLUB_DEBUG \
+          -d DEBUG_PAGEALLOC \
+          -d GDB_SCRIPTS \
+          -d DEBUG_LIST \
+          -d FRAME_POINTER
         
+        # Tracing/instrumentation (only if you really want them off)
+        scripts/config --file "$OUT/.config" \
+          -d FTRACE \
+          -d FUNCTION_TRACER \
+          -d FUNCTION_GRAPH_TRACER \
+          -d DYNAMIC_FTRACE \
+          -d KPROBES \
+          -d UPROBES
         
         make O="$OUT" olddefconfig
-        
+
         KCFLAGS="$KCFLAGS -Wno-error -pipe -fno-stack-protector ${KCFLAGS_EXTRA}"
         KCPPFLAGS="$KCPPFLAGS -DCONFIG_OPTIMIZE_INLINING"
         
