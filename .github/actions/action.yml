@@ -1232,37 +1232,9 @@ runs:
             exit 1
             ;;
         esac
-        
-        # Disable debug/lockdep options (your requested block)
-        scripts/config --file "$OUT/.config" \
-          -d LOCKDEP \
-          -d PROVE_LOCKING \
-          -d DEBUG_LOCK_ALLOC \
-          -d LOCK_DEBUGGING \
-          -d DEBUG_MUTEXES \
-          -d DEBUG_SPINLOCK \
-          -d DEBUG_ATOMIC_SLEEP \
-          -d DEBUG_KMEMLEAK \
-          -d DEBUG_OBJECTS \
-          -d SLUB_DEBUG \
-          -d DEBUG_PAGEALLOC \
-          -d GDB_SCRIPTS \
-          -d DEBUG_LIST
-        
-        # Force vendor hooks + tracing (NO "|| true" here)
-        scripts/config --file "$OUT/.config" \
-          -e TRACEPOINTS \
-          -e TRACING \
-          -e ANDROID_VENDOR_HOOKS
-        
-        # Let Kconfig resolve dependencies
+                
         make O="$OUT" olddefconfig
-        
-        # Fail fast if they didn't stick
-        grep -q '^CONFIG_TRACEPOINTS=y' "$OUT/.config" || { echo "::error::CONFIG_TRACEPOINTS not enabled"; exit 1; }
-        grep -q '^CONFIG_TRACING=y' "$OUT/.config"    || { echo "::error::CONFIG_TRACING not enabled"; exit 1; }
-        grep -q '^CONFIG_ANDROID_VENDOR_HOOKS=y' "$OUT/.config" || { echo "::error::CONFIG_ANDROID_VENDOR_HOOKS not enabled"; exit 1; }
-          
+                   
         KCFLAGS="$KCFLAGS -Wno-error -pipe -fno-stack-protector ${KCFLAGS_EXTRA}"
         KCPPFLAGS="$KCPPFLAGS -DCONFIG_OPTIMIZE_INLINING"
         
