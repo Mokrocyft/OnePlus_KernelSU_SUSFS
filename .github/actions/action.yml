@@ -653,11 +653,11 @@ runs:
         echo "::group::Add BBG LSM"
         cd "$CONFIG/kernel_platform"
         echo "Adding BBG..."
-        if ! wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/dev/setup.sh | bash -s -- "dev"; then
+        if ! wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash; then
           echo "::warning::BBG setup script failed, continuing anyway"
         fi
         echo "CONFIG_BBG=y" >> common/arch/arm64/configs/gki_defconfig
-        sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' common/security/Kconfig
+        sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/selinux/selinux,baseband_guard/ } }' common/security/Kconfig
         echo "✅ BBG LSM added"
         echo "::endgroup::"
 
