@@ -816,8 +816,7 @@ runs:
               patch -p1 --forward < "../../../kernel_patches/next/susfs_fix_patches/$susfs_version/overwrite_hook_mode.patch"
               patch -p1 --forward < "../../../kernel_patches/next/susfs_fix_patches/$susfs_version/ksu_toolkit.patch"
             else
-              curl -Ls https://raw.githubusercontent.com/Bouteillepleine/kernel_patches/main/kowksu/10_enable_susfs_for_ksu.patch | patch -p1 --forward
-              curl -Ls https://raw.githubusercontent.com/Bouteillepleine/kernel_patches/main/kowksu/sulog2_ksu_handle_sys_reboot.patch | patch -p1 --forward
+              curl -Ls https://raw.githubusercontent.com/Bouteillepleine/kernel_patches/main/kowksu/10_enable_susfs_for_ksu.patch | patch -p1 --forward              
             fi
             ;;
           *)
