@@ -88,7 +88,7 @@ jobs:
           
           input="${{ github.event.inputs.op_model }}"
           ksu_options_raw='${{ github.event.inputs.ksu_options }}'
-          if ! ksu_options_normalized=$(echo "$ksu_options_raw" | jq -c 'map(if .type then .type |= ascii_upcase | if .hash == null then if .type == "KSUN" then .hash = "dev" elif .type == "KSU" then .hash = "main" else .hash end else . end else error("No type found") end)' 2>&1); then
+          if ! ksu_options_normalized=$(echo "$ksu_options_raw" | jq -c 'map(if .type then .type |= ascii_upcase | if .hash == null then if .type == "KSUN" then .hash = "dev" elif .type == "KSU" then .hash = "main" elif .type == "WKSU" then .hash = "wild" else .hash end else . end else error("No type found") end)' 2>&1); then
             echo "::error::ksu_options validation failed: $ksu_options_normalized"
             exit 1
           fi
@@ -591,6 +591,8 @@ jobs:
           
           ksun_hash=$(echo "$ksu_options_normalized" | jq -r 'map(select(.type == "KSUN")) | first | .hash // empty')
           ksu_hash=$(echo "$ksu_options_normalized" | jq -r 'map(select(.type == "KSU")) | first | .hash // empty')
+          wksu_hash=$(echo "$ksu_options_normalized" | jq -r 'map(select(.type == "WKSU")) | first | .hash // empty')
+
           
           # Get workflow inputs for reference
           KSUN_BRANCH="$ksun_hash"
@@ -678,6 +680,11 @@ jobs:
             cat << EOF >> release_notes.md
           | **KernelSU Next Branch** | \`$KSUN_BRANCH\` |
           | **KernelSU Next Version** | \`$ksu_ver_global\` |
+          EOF
+          elif [ -n "$wksu_hash" ]; then
+            cat << EOF >> release_notes.md
+          | **Wild KSU Branch** | \`$wksu_hash\` |
+          | **Wild KSU Version/Commit** | \`$ksu_ver_global\` |
           EOF
           elif [ -n "$KSU_BRANCH" ]; then
             cat << EOF >> release_notes.md
