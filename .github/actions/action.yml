@@ -814,118 +814,56 @@ runs:
         echo "::endgroup::"
 
 
-    - name: Apply SUSFS Patches
+    - name: Apply SUSFS patches (OnePlus 6.12 safe)
       shell: bash
       if: ${{ env.OP_SUSFS == 'true' }}
       run: |
         set -euo pipefail
-        echo "::group::Apply SUSFS patches"
+        echo "::group::Apply SUSFS (OnePlus)"
+    
         cd "$KERNEL_PLATFORM_FOLDER"
-        echo "Applying SUSFS patches..."
+    
+        echo "Copy SUSFS headers and fs hooks"
         cp -v "$SUSFS_FOLDER/kernel_patches/fs/"* "$COMMON_KERNEL_FOLDER/fs/" 2>/dev/null || true
         cp -v "$SUSFS_FOLDER/kernel_patches/include/linux/"* "$COMMON_KERNEL_FOLDER/include/linux/" 2>/dev/null || true
-
-        susfs_version=$(grep -m1 '#define SUSFS_VERSION' "$COMMON_KERNEL_FOLDER/include/linux/susfs.h" | awk -F'"' '{print $2}' || echo "")
+    
+        susfs_version=$(grep -m1 '#define SUSFS_VERSION' \
+          "$COMMON_KERNEL_FOLDER/include/linux/susfs.h" | awk -F'"' '{print $2}' || echo "")
         echo "SUSVER=$susfs_version" >> $GITHUB_ENV
-        echo "$susfs_version" >> "${ARTIFACTS_FOLDER}/${OP_MODEL}_${OP_OS_VERSION}.txt"
-        echo "SusFS Version: $susfs_version"
-
-        # mark NEED_HOOKS for older SUSFS
-        if [ -n "$susfs_version" ] && [ "${susfs_version:0:2}" = "v1" ]; then
-          echo "NEED_HOOKS=true" >> $GITHUB_ENV
-        else
-          echo "NEED_HOOKS=false" >> $GITHUB_ENV
-        fi
-
-        # helper to try to apply a patch with fuzzy/forward and not fatal
+        echo "SUSFS version: $susfs_version"
+    
         safe_patch() {
-          local p="$1"
-          if [ -f "$p" ]; then
-            echo "Applying patch: $p"
-            patch -p1 --forward --fuzz=3 < "$p" || true
-          else
-            echo "Patch not found: $p"
-          fi
+          [ -f "$1" ] || return 0
+          echo "Applying patch: $1"
+          patch -p1 --forward --fuzz=3 < "$1" || true
         }
-
-        # For KernelSU-Next builds we should apply SUSFS enabling inside the KSUN tree,
-        # then attempt to apply per-file fixes for .rej entries using fix_*.patch
-        if [ "$susfs_version" = "v2.0.0" ]; then
-          if [ "${{ inputs.ksu_type }}" = "KSUN" ]; then
-            cd "$KSUN_FOLDER" || true
-            safe_patch "$SUSFS_FOLDER/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
-
-            # for every .rej created in kernel/ try to apply corresponding fix_$file.patch from kernel_patches/next
-            for rej in $(find ./kernel -maxdepth 2 -name "*.rej" -print 2>/dev/null || true); do
-              base=$(basename "$rej" .rej)
-              fix="$KERNEL_PATCHES_FOLDER/next/susfs_fix_patches/$susfs_version/fix_${base}.patch"
-              if [ -f "$fix" ]; then
-                echo "Applying per-file fix for $base"
-                patch -p1 --forward --fuzz=3 < "$fix" || true
-              else
-                echo "No per-file fix for $base (expected: $fix)"
-              fi
-            done
-
-            # apply general next fixes if present
-            safe_patch "$KERNEL_PATCHES_FOLDER/next/susfs_fix_patches/$susfs_version/fix_kernel_compat.patch"
-            safe_patch "$KERNEL_PATCHES_FOLDER/next/susfs_fix_patches/$susfs_version/overwrite_hook_mode.patch"
-            safe_patch "$KERNEL_PATCHES_FOLDER/next/susfs_fix_patches/$susfs_version/ksu_toolkit.patch"
-            safe_patch "$KERNEL_PATCHES_FOLDER/next/susfs_fix_patches/$susfs_version/multi_manager.patch"
-
-          elif [ "${{ inputs.ksu_type }}" = "WKSU" ]; then
-            # Wild KSU: apply SUSFS in the kernel common tree, then apply wild specific fixes
-            cd "$KERNEL_PLATFORM_FOLDER" || true
-            # copy (again) in case of differences
-            cp -v "$SUSFS_FOLDER/kernel_patches/fs/"* "$COMMON_KERNEL_FOLDER/fs/" 2>/dev/null || true
-            cp -v "$SUSFS_FOLDER/kernel_patches/include/linux/"* "$COMMON_KERNEL_FOLDER/include/linux/" 2>/dev/null || true
-
-            # Add entry patch for this kernel (if present)
-            local_patch="$SUSFS_FOLDER/kernel_patches/50_add_susfs_in_${{ env.SUSFS_KERNEL_BRANCH }}.patch"
-            safe_patch "$local_patch"
-
-            # apply wild-specific fixes if available
-            for fix in "$KERNEL_PATCHES_FOLDER/wild/susfs_fix_patches/$susfs_version/"*.patch; do
-              [ -f "$fix" ] || continue
-              echo "Applying wild fix: $fix"
-              patch -p1 --forward --fuzz=3 < "$fix" || true
-            done
-
-          else
-            # default KernelSU (tiann/KernelSU)
-            cd "$KSU_FOLDER" || true
-            safe_patch "$SUSFS_FOLDER/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
-          fi
+    
+        # --- enable SUSFS inside correct KSU tree ---
+        if [ "${{ inputs.ksu_type }}" = "WKSU" ]; then
+          cd "$KERNEL_PLATFORM_FOLDER"
+        elif [ "${{ inputs.ksu_type }}" = "KSUN" ]; then
+          cd "$KSUN_FOLDER"
+          safe_patch "$SUSFS_FOLDER/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
         else
-          # generic handling for older v1.* SUSFS: try to enable in appropriate KSU tree,
-          # then apply the next/compat fixes (if any)
-          if [ "${{ inputs.ksu_type }}" = "KSUN" ]; then
-            cd "$KSUN_FOLDER" || true
-            safe_patch "$SUSFS_FOLDER/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
-            # attempt to apply known next fixes (best-effort)
-            for fix in "$KERNEL_PATCHES_FOLDER/next/susfs_fix_patches/$susfs_version/"*.patch; do
-              [ -f "$fix" ] || continue
-              safe_patch "$fix"
-            done
-          else
-            cd "$KSU_FOLDER" || true
-            safe_patch "$SUSFS_FOLDER/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
-          fi
+          cd "$KSU_FOLDER"
+          safe_patch "$SUSFS_FOLDER/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch"
         fi
-
-        # ensure the common 50_add_susfs patch applied to common
+    
+        # --- apply common kernel hook ---
         cd "$COMMON_KERNEL_FOLDER"
-        safe_patch "$SUSFS_FOLDER/kernel_patches/50_add_susfs_in_${{ env.SUSFS_KERNEL_BRANCH }}.patch"
-
-        # small kernel fixes for specific kernel versions (same as before)
-        if [ "${{ env.ANDROID_VER }}" = "android15" ] && [ "${{ env.KERNEL_VER }}" = "6.6" ]; then
-          if ! grep -qxF '#include <trace/hooks/fs.h>' ./fs/namespace.c; then
-            sed -i '/#include <trace\/hooks\/blk.h>/a #include <trace\/hooks\/fs.h>' ./fs/namespace.c || true
-          fi
+        safe_patch "$SUSFS_FOLDER/kernel_patches/50_add_susfs_in_gki-android16-6.12.patch"
+    
+        # --- 6.12 specific stability fixes (vendor-safe) ---
+        if grep -q "VERSION = 6" Makefile && grep -q "SUBLEVEL = 12" Makefile; then
+          echo "Applying OnePlus 6.12 fixes"
+    
+          safe_patch "$SUSFS_FOLDER/kernel_patches/fix_ksud.c.patch"
+          safe_patch "$SUSFS_FOLDER/kernel_patches/fix_supercalls_612.patch"
         fi
-
-        echo "✅ SUSFS patches applied (best-effort)"
+    
+        echo "✅ SUSFS applied (OnePlus vendor kernel)"
         echo "::endgroup::"
+    
 
     - name: Add BBG
       if: ${{ env.OP_BBG == 'true' }}
