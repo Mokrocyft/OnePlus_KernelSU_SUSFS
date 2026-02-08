@@ -864,6 +864,24 @@ runs:
         echo "✅ SUSFS applied (OnePlus vendor kernel)"
         echo "::endgroup::"
     
+    - name: Disable Debug Options
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Disable debugs"
+        cat >> "$COMMON_KERNEL_FOLDER/arch/arm64/configs/gki_defconfig" <<EOF        
+        CONFIG_DEBUG_KERNEL=n
+        CONFIG_DEBUG_INFO=n
+        CONFIG_DEBUG_INFO_DWARF4=n        
+        CONFIG_LOCK_DEBUGGING=n
+        CONFIG_DEBUG_MUTEXES=n
+        CONFIG_DEBUG_SPINLOCK=n
+        CONFIG_DEBUG_ATOMIC_SLEEP=n
+        CONFIG_GDB_SCRIPTS=n
+        CONFIG_DEBUG_FS=n
+        CONFIG_KALLSYMS=n
+        EOF
+
 
     - name: Add BBG
       if: ${{ env.OP_BBG == 'true' }}
@@ -1000,7 +1018,7 @@ runs:
         CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
         CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
         CONFIG_KSU_SUSFS_SUS_KSTAT=y
-        CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n
+        CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y
         CONFIG_KSU_SUSFS_TRY_UMOUNT=y
         CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y
         CONFIG_KSU_SUSFS_SPOOF_UNAME=y
@@ -1073,6 +1091,7 @@ runs:
         echo "Add Build based configs"
         cat >> "$COMMON_KERNEL_FOLDER/arch/arm64/configs/gki_defconfig" <<EOF
         CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE=y
+        CONFIG_WQ_POWER_EFFICIENT_DEFAULT=y
         CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=n
         CONFIG_OPTIMIZE_INLINING=y
         CONFIG_FRAME_WARN=0
